@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NON BINARY FAIRY CAT FUKKING ADVENTURE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --game-width: 600px;
+            --game-height: 800px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            color: #fff;
+            font-family: 'Press Start 2P', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none; /* Previene scroll en móviles */
+        }
+
+        #game-logo {
+            max-width: 90vw;
+            max-height: 60px; /* Limita la altura para que no desplace el juego hacia abajo */
+            margin: 10px 0;
+            image-rendering: pixelated; /* Mantiene el look 8-bit */
+            object-fit: contain;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: var(--game-width);
+            height: 45vh; /* Ocupa aprox el 50% de la pantalla restando el título */
+            max-height: var(--game-height);
+            background-color: #5b9e4d;
+            border: 4px solid #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            image-rendering: pixelated; /* Mantiene el look 8-bit */
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+            z-index: 10;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+        }
+
+        .timer-danger {
+            color: #ff4444;
+            animation: blink 0.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .sprite {
+            position: absolute;
+            transform: translate(-50%, -50%); /* Centrar el ancla */
+            will-change: left, top;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        #player {
+            width: 64px;
+            height: 64px;
+            z-index: 5;
+        }
+
+        .cat {
+            width: 56px;
+            height: 56px;
+            z-index: 4;
+        }
+
+        .cat-flip {
+            transform: translate(-50%, -50%) scaleX(-1);
+        }
+
+        .heart-particle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            z-index: 6;
+            pointer-events: none;
+            animation: explode 1.5s ease-out forwards; /* Aumentado a 1.5s */
+            image-rendering: pixelated;
+        }
+
+        .cover-gif {
+            position: absolute;
+            width: 80px; /* Un poco más grande para tapar el impacto */
+            height: 80px;
+            transform: translate(-50%, -50%);
+            z-index: 7; /* Por encima de todo */
+            pointer-events: none;
+            image-rendering: pixelated;
+        }
+
+        .splat {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            transform: translate(-50%, -50%);
+            z-index: 3;
+            pointer-events: none;
+            image-rendering: pixelated;
+        }
+
+        /* --- NUEVO: Estilos de la lata y el Power-Up --- */
+        .energy-item {
+            position: absolute;
+            height: 32px; /* Altura fija */
+            width: auto;  /* Ancho automático para respetar la proporción */
+            z-index: 4;
+            transform: translate(-50%, -50%);
+            animation: retro-bounce 0.8s infinite alternate;
+            image-rendering: pixelated;
+            filter: drop-shadow(0 0 5px yellow);
+        }
+
+        .player-boosted {
+            filter: drop-shadow(0 0 10px yellow) drop-shadow(0 0 10px yellow);
+        }
+
+        #boostDisplay {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffff00;
+            font-size: 14px;
+            text-shadow: 2px 2px 0 #000;
+            z-index: 10;
+        }
+
+        /* --- NUEVO: Estilos para el texto YEEHAW! --- */
+        #yeehawText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffff00;
+            font-size: 40px;
+            text-shadow: 4px 4px 0 #000;
+            z-index: 15;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .show-yeehaw {
+            animation: yeehaw-anim 1s ease-out forwards;
+        }
+
+        @keyframes yeehaw-anim {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+        /* ---------------------------------------------- */
+
+        @keyframes retro-bounce {
+            0% { margin-top: 0; filter: brightness(1) drop-shadow(0 0 2px yellow); }
+            100% { margin-top: -10px; filter: brightness(1.5) drop-shadow(0 0 10px yellow); }
+        }
+        /* ---------------------------------------------- */
+
+        @keyframes explode {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        /* Pantallas superpuestas */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        button {
+            font-family: 'Press Start 2P', monospace;
+            background-color: #ff9ee8;
+            color: #000;
+            border: 4px solid #fff;
+            padding: 15px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.1s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        /* Controles táctiles móviles */
+        #dpad {
+            display: grid; /* Siempre visible por diseño mobile-first */
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 15px;
+            width: 90vw;
+            max-width: 500px;
+            height: 40vh; /* El otro ~50% de la pantalla interactiva */
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+            #game-logo { max-height: 40px; } /* Logo más pequeño en móviles */
+            #game-container { height: 45vh; }
+        }
+
+        /* --- NUEVO: Botones D-Pad estilo 8-bits --- */
+        .dpad-btn {
+            background-color: #aaaaaa;
+            border: none;
+            /* Simulamos bordes gruesos estilo pixel art con box-shadow */
+            box-shadow: 
+                inset -4px -4px 0px 0px rgba(0,0,0,0.5),
+                inset 4px 4px 0px 0px rgba(255,255,255,0.8),
+                0 0 0 4px #000; /* Borde negro exterior */
+            border-radius: 0; /* Cero curvas, puro pixel */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px; /* Tamaño ajustado para encajar bien */
+            user-select: none;
+            touch-action: none;
+            color: #000;
+            text-shadow: 2px 2px 0px rgba(255,255,255,0.5);
+        }
+        
+        .dpad-btn:active { 
+            background-color: #888888;
+            /* Invertimos la sombra interior al presionar */
+            box-shadow: 
+                inset 4px 4px 0px 0px rgba(0,0,0,0.5),
+                inset -4px -4px 0px 0px rgba(255,255,255,0.3),
+                0 0 0 4px #000;
+            transform: scale(0.95);
+        }
+        /* ------------------------------------------- */
+
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 3; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+
+    </style>
+</head>
+<body>
+
+    <img id="game-logo" src="https://github.com/conblau97/NBF/blob/main/logo.png?raw=true" alt="NON BINARY FAIRY CAT FUKKING ADVENTURE">
+
+    <div id="game-container">
+        <div id="ui">
+            <div id="scoreDisplay">Score: 0</div>
+            <div id="timerDisplay">Time: 3</div>
+            <!-- NUEVO: Temporizador del Boost -->
+            <div id="boostDisplay" class="hidden">BOOST: 10s</div>
+        </div>
+
+        <img id="player" class="sprite" src="" alt="Player">
+        
+        <!-- NUEVO: Texto YEEHAW -->
+        <div id="yeehawText">YEEHAW!</div>
+
+        <!-- Menú Principal -->
+        <div id="start-screen" class="overlay">
+            <h2 style="color: #ff9ee8; line-height: 1.5; font-size: 16px;">Fuck the cats!</h2>
+            <p style="font-size: 10px; line-height: 1.8; margin: 20px 0;">
+                Move with ARROWS or WASD.<br>
+                You have 3 seconds to fuck<br>
+                a kitty before<br>
+                time runs out.
+            </p>
+            <div id="loading" style="font-size: 12px; color: yellow;">Loading assets...</div>
+            <button id="start-btn" class="hidden">PLAY</button>
+        </div>
+
+        <!-- Pantalla Game Over -->
+        <div id="game-over-screen" class="overlay hidden">
+            <h2 style="color: red; margin-bottom: 20px;">GAME OVER</h2>
+            <p>Total Cats Fucked: <span id="final-score">0</span></p>
+            <button id="restart-btn">RETRY</button>
+        </div>
+    </div>
+
+    <!-- D-Pad para móviles -->
+    <div id="dpad">
+        <div class="dpad-btn" id="btn-up">▲</div>
+        <div class="dpad-btn" id="btn-left">◀</div>
+        <div class="dpad-btn" id="btn-down">▼</div>
+        <div class="dpad-btn" id="btn-right">▶</div>
+    </div>
+
+    <script>
+        // --- ASSETS ---
+        const ASSETS_URLS = {
+            down: 'https://github.com/conblau97/NBF/blob/main/down.gif?raw=true',
+            up: 'https://github.com/conblau97/NBF/blob/main/up.gif?raw=true',
+            left: 'https://github.com/conblau97/NBF/blob/main/sideL.gif?raw=true',
+            right: 'https://github.com/conblau97/NBF/blob/main/sideR.gif?raw=true',
+            standby: 'https://github.com/conblau97/NBF/blob/main/standby.gif?raw=true',
+            cat: 'https://github.com/conblau97/NBF/blob/main/kubbi-chiptune.gif?raw=true',
+            heart: 'https://github.com/conblau97/NBF/blob/main/heart.png?raw=true',
+            splat: 'https://github.com/conblau97/NBF/blob/main/splat.png?raw=true',
+            cover: 'https://github.com/conblau97/NBF/blob/main/cover.gif?raw=true',
+            energy: 'https://github.com/conblau97/NBF/blob/main/energy.png?raw=true' // NUEVO ASSET
+        };
+
+        const preloadedImages = {};
+        let assetsLoaded = 0;
+        const totalAssets = Object.keys(ASSETS_URLS).length;
+
+        // Pre-carga de imágenes
+        for (let key in ASSETS_URLS) {
+            const img = new Image();
+            img.onload = () => {
+                assetsLoaded++;
+                if (assetsLoaded === totalAssets) {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('start-btn').classList.remove('hidden');
+                    // Asignamos la imagen inicial para evitar el ícono de imagen rota antes de jugar
+                    document.getElementById('player').src = preloadedImages.standby;
+                }
+            };
+            img.src = ASSETS_URLS[key];
+            preloadedImages[key] = ASSETS_URLS[key]; // Guardamos la URL
+        }
+
+        // --- ESTADO DEL JUEGO ---
+        const gameContainer = document.getElementById('game-container');
+        const playerEl = document.getElementById('player');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        
+        let isPlaying = false;
+        let score = 0;
+        let timeLeft = 3.0;
+        let lastTime = 0;
+        let cats = [];
+        let reqAnimation;
+
+        // NUEVO: Variables para Energy Boost
+        let energyItems = [];
+        let isBoosted = false;
+        let boostTimeLeft = 0;
+        let timeSinceLastEnergyCheck = 0;
+
+        // Generar fondo aleatorio estilo pixel-art
+        function generateRandomBackground() {
+            const canvas = document.createElement('canvas');
+            const tileSize = 8; // Píxeles significativamente más pequeños
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            const greens = ['#5b9e4d', '#528f45', '#61a752', '#4b823f', '#3e7033'];
+            
+            for (let y = 0; y < canvas.height; y += tileSize) {
+                for (let x = 0; x < canvas.width; x += tileSize) {
+                    ctx.fillStyle = greens[Math.floor(Math.random() * greens.length)];
+                    ctx.fillRect(x, y, tileSize, tileSize);
+                }
+            }
+            
+            gameContainer.style.backgroundImage = `url(${canvas.toDataURL()})`;
+        }
+        generateRandomBackground();
+
+        // Jugador
+        const player = {
+            x: 0,
+            y: 0,
+            speed: 200, // pixeles por segundo
+            state: '', // Iniciamos vacío para que setPlayerState aplique el cambio al empezar
+            width: 40, // Hitbox
+            height: 40
+        };
+
+        // Controles
+        const keys = {
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+            w: false, s: false, a: false, d: false
+        };
+
+        // --- INICIALIZACIÓN Y EVENTOS ---
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+
+        window.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+        });
+
+        // Controles táctiles
+        const dpadMap = {
+            'btn-up': 'ArrowUp', 'btn-down': 'ArrowDown',
+            'btn-left': 'ArrowLeft', 'btn-right': 'ArrowRight'
+        };
+
+        for (let id in dpadMap) {
+            const btn = document.getElementById(id);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[dpadMap[id]] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[dpadMap[id]] = false; });
+            btn.addEventListener('mousedown', (e) => { keys[dpadMap[id]] = true; });
+            btn.addEventListener('mouseup', (e) => { keys[dpadMap[id]] = false; });
+            btn.addEventListener('mouseleave', (e) => { keys[dpadMap[id]] = false; });
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.add('hidden');
+            
+            // Reset estado
+            score = 0;
+            timeLeft = 3.0;
+            
+            // NUEVO: Resetear variables del Boost
+            isBoosted = false;
+            boostTimeLeft = 0;
+            timeSinceLastEnergyCheck = 0;
+            player.speed = 200;
+            playerEl.classList.remove('player-boosted');
+            document.getElementById('boostDisplay').classList.add('hidden');
+
+            generateRandomBackground(); // Genera un nuevo jardín al jugar
+            updateUI();
+            
+            // Centrar jugador
+            player.x = gameContainer.clientWidth / 2;
+            player.y = gameContainer.clientHeight / 2;
+            setPlayerState('standby');
+            updatePlayerDOM();
+
+            // Limpiar gatos y objetos anteriores
+            cats.forEach(c => c.element.remove());
+            cats = [];
+            energyItems.forEach(e => e.element.remove());
+            energyItems = [];
+
+            // Spawn inicial de gatos
+            for(let i = 0; i < 3; i++) spawnCat();
+
+            isPlaying = true;
+            lastTime = performance.now();
+            reqAnimation = requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            cancelAnimationFrame(reqAnimation);
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('game-over-screen').classList.remove('hidden');
+            setPlayerState('standby');
+        }
+
+        // --- LÓGICA PRINCIPAL ---
+
+        function gameLoop(timestamp) {
+            if (!isPlaying) return;
+
+            const deltaTime = (timestamp - lastTime) / 1000; // Segundos
+            lastTime = timestamp;
+
+            updatePlayer(deltaTime);
+            updateCats(deltaTime);
+            checkCollisions();
+            
+            // --- NUEVO: Lógica del Energy Boost ---
+            if (isBoosted) {
+                boostTimeLeft -= deltaTime;
+                if (boostTimeLeft <= 0) {
+                    isBoosted = false;
+                    boostTimeLeft = 0;
+                    player.speed = 200; // Volver a la normalidad
+                    playerEl.classList.remove('player-boosted');
+                    document.getElementById('boostDisplay').classList.add('hidden');
+                } else {
+                    document.getElementById('boostDisplay').innerText = `BOOST: ${Math.ceil(boostTimeLeft)}s`;
+                }
+            } else {
+                // Intentar aparecer un Energy Boost si no estamos boosteados
+                timeSinceLastEnergyCheck += deltaTime;
+                if (timeSinceLastEnergyCheck >= 1.0) { // Chequeo cada 1 segundo
+                    timeSinceLastEnergyCheck = 0;
+                    // 10% de probabilidad de aparecer si no hay otro en pantalla
+                    if (Math.random() < 0.10 && energyItems.length === 0) {
+                        spawnEnergy();
+                    }
+                }
+            }
+            // ----------------------------------------
+
+            // Actualizar Temporizador
+            timeLeft -= deltaTime;
+            if (timeLeft <= 0) {
+                timeLeft = 0;
+                updateUI();
+                gameOver();
+                return;
+            }
+
+            updateUI();
+            reqAnimation = requestAnimationFrame(gameLoop);
+        }
+
+        function updatePlayer(dt) {
+            let dx = 0;
+            let dy = 0;
+            let newState = 'standby';
+
+            // Movimiento estricto en 4 direcciones (sin diagonales)
+            if (keys.ArrowLeft || keys.a) {
+                dx = -1;
+                newState = 'left';
+            } else if (keys.ArrowRight || keys.d) {
+                dx = 1;
+                newState = 'right';
+            } else if (keys.ArrowUp || keys.w) {
+                dy = -1;
+                newState = 'up';
+            } else if (keys.ArrowDown || keys.s) {
+                dy = 1;
+                newState = 'down';
+            }
+
+            // Aplicar movimiento
+            player.x += dx * player.speed * dt;
+            player.y += dy * player.speed * dt;
+
+            // Limites de pantalla (con redondeo para efecto grid/retro de números enteros)
+            const bounds = gameContainer.getBoundingClientRect();
+            player.x = Math.round(Math.max(20, Math.min(bounds.width - 20, player.x)));
+            player.y = Math.round(Math.max(20, Math.min(bounds.height - 20, player.y)));
+
+            setPlayerState(newState);
+            updatePlayerDOM();
+        }
+
+        function setPlayerState(state) {
+            if (player.state !== state) {
+                player.state = state;
+                playerEl.src = preloadedImages[state];
+            }
+        }
+
+        function updatePlayerDOM() {
+            playerEl.style.left = `${player.x}px`;
+            playerEl.style.top = `${player.y}px`;
+        }
+
+        // --- GATOS ---
+        
+        function spawnCat() {
+            const isLeftToRight = Math.random() > 0.5;
+            const bounds = gameContainer.getBoundingClientRect();
+            
+            const catEl = document.createElement('img');
+            catEl.src = preloadedImages.cat;
+            catEl.className = 'sprite cat';
+            if (!isLeftToRight) {
+                catEl.classList.add('cat-flip'); // Voltear si va a la izquierda
+            }
+            
+            // Variedad de colores usando hue-rotate
+            const randomHue = Math.floor(Math.random() * 360);
+            catEl.style.filter = `hue-rotate(${randomHue}deg)`;
+            
+            gameContainer.appendChild(catEl);
+
+            const cat = {
+                element: catEl,
+                x: isLeftToRight ? -50 : bounds.width + 50,
+                y: Math.random() * (bounds.height - 100) + 50, // Margen superior/inferior
+                speed: 100 + Math.random() * 150, // Velocidad aleatoria
+                direction: isLeftToRight ? 1 : -1,
+                width: 40, // Hitbox
+                height: 40
+            };
+            
+            cats.push(cat);
+        }
+
+        function updateCats(dt) {
+            const bounds = gameContainer.getBoundingClientRect();
+            
+            for (let i = cats.length - 1; i >= 0; i--) {
+                const cat = cats[i];
+                cat.x += cat.speed * cat.direction * dt;
+                
+                cat.element.style.left = `${cat.x}px`;
+                cat.element.style.top = `${cat.y}px`;
+
+                // Si sale de la pantalla, reciclarlo
+                if ((cat.direction === 1 && cat.x > bounds.width + 60) || 
+                    (cat.direction === -1 && cat.x < -60)) {
+                    cat.element.remove();
+                    cats.splice(i, 1);
+                    spawnCat();
+                }
+            }
+        }
+
+        // --- COLISIONES Y EXPLOSIONES ---
+
+        function checkCollisions() {
+            for (let i = cats.length - 1; i >= 0; i--) {
+                const cat = cats[i];
+                
+                // Distancia euclidiana simple (Círculos) o AABB (Cuadrados)
+                // Usaremos AABB centrado
+                const pLeft = player.x - player.width / 2;
+                const pRight = player.x + player.width / 2;
+                const pTop = player.y - player.height / 2;
+                const pBottom = player.y + player.height / 2;
+
+                const cLeft = cat.x - cat.width / 2;
+                const cRight = cat.x + cat.width / 2;
+                const cTop = cat.y - cat.height / 2;
+                const cBottom = cat.y + cat.height / 2;
+
+                if (pLeft < cRight && pRight > cLeft && pTop < cBottom && pBottom > cTop) {
+                    // ¡COLISIÓN! (Abrazo)
+                    hugCat(cat, i);
+                }
+            }
+
+            // NUEVO: Colisiones con Energy Boost
+            for (let i = energyItems.length - 1; i >= 0; i--) {
+                const energy = energyItems[i];
+                
+                const pLeft = player.x - player.width / 2;
+                const pRight = player.x + player.width / 2;
+                const pTop = player.y - player.height / 2;
+                const pBottom = player.y + player.height / 2;
+
+                const eLeft = energy.x - energy.width / 2;
+                const eRight = energy.x + energy.width / 2;
+                const eTop = energy.y - energy.height / 2;
+                const eBottom = energy.y + energy.height / 2;
+
+                if (pLeft < eRight && pRight > eLeft && pTop < eBottom && pBottom > eTop) {
+                    collectEnergy(energy, i);
+                }
+            }
+        }
+
+        // --- NUEVO: Funciones para el Energy Boost ---
+        function collectEnergy(energy, index) {
+            // Eliminar del DOM y del array
+            energy.element.remove();
+            energyItems.splice(index, 1);
+            
+            // Activar efectos
+            isBoosted = true;
+            boostTimeLeft = 10.0;
+            player.speed = 400; // Doble de velocidad (normal 200)
+            playerEl.classList.add('player-boosted');
+            document.getElementById('boostDisplay').classList.remove('hidden');
+
+            // Mostrar YEEHAW!
+            const yeehawEl = document.getElementById('yeehawText');
+            // Removemos la clase y forzamos un reflow para reiniciar la animación si se recoge otra lata rápido
+            yeehawEl.classList.remove('show-yeehaw');
+            void yeehawEl.offsetWidth; 
+            yeehawEl.classList.add('show-yeehaw');
+        }
+
+        function spawnEnergy() {
+            const bounds = gameContainer.getBoundingClientRect();
+            const energyEl = document.createElement('img');
+            energyEl.src = preloadedImages.energy;
+            energyEl.className = 'energy-item';
+            
+            // Posición random dentro de los límites
+            const x = 40 + Math.random() * (bounds.width - 80);
+            const y = 40 + Math.random() * (bounds.height - 80);
+            
+            energyEl.style.left = `${x}px`;
+            energyEl.style.top = `${y}px`;
+            gameContainer.appendChild(energyEl);
+            
+            const energyObj = {
+                element: energyEl,
+                x: x,
+                y: y,
+                width: 16, // Hitbox ajustada a una forma más rectangular
+                height: 32
+            };
+            
+            energyItems.push(energyObj);
+            
+            // Eliminar después de 5 segundos si no es recogido
+            setTimeout(() => {
+                const idx = energyItems.indexOf(energyObj);
+                if (idx > -1) {
+                    energyEl.remove();
+                    energyItems.splice(idx, 1);
+                }
+            }, 5000);
+        }
+        // ----------------------------------------------
+
+        function hugCat(cat, index) {
+            createHeartExplosion(cat.x, cat.y);
+            createCoverGif(cat.x, cat.y); // Disparar el GIF que tapa el abrazo
+            
+            // Dejar el PNG de "Splat"
+            const splatEl = document.createElement('img');
+            splatEl.src = preloadedImages.splat;
+            splatEl.className = 'splat';
+            splatEl.style.left = `${cat.x}px`;
+            splatEl.style.top = `${cat.y}px`;
+            gameContainer.appendChild(splatEl);
+            
+            // Desaparecer el splat de golpe a los 3 segundos
+            setTimeout(() => {
+                splatEl.remove();
+            }, 3000);
+            
+            // Eliminar gato actual
+            cat.element.remove();
+            cats.splice(index, 1);
+            
+            // Actualizar juego
+            score++;
+            timeLeft = 3.0; // Resetear temporizador
+            
+            // Aumentar dificultad generando gatos (mantener entre 3 y 5 en pantalla)
+            spawnCat();
+            if (score % 5 === 0 && cats.length < 6) {
+                spawnCat(); // Cada 5 puntos agregamos un gato extra simultáneo
+            }
+        }
+
+        function createHeartExplosion(x, y) {
+            const numHearts = 8;
+            for (let i = 0; i < numHearts; i++) {
+                const heart = document.createElement('img');
+                heart.src = preloadedImages.heart;
+                heart.className = 'heart-particle';
+                heart.style.left = `${x}px`;
+                heart.style.top = `${y}px`;
+                
+                // Dirección aleatoria de la explosión
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 60 + Math.random() * 80; // Aumentamos la distancia para que viajen más lejos
+                
+                heart.style.setProperty('--dx', `${Math.cos(angle) * distance}px`);
+                heart.style.setProperty('--dy', `${Math.sin(angle) * distance}px`);
+                
+                gameContainer.appendChild(heart);
+                
+                // Limpiar del DOM luego de la animación
+                setTimeout(() => {
+                    heart.remove();
+                }, 1500); // Aumentado a 1.5s
+            }
+        }
+
+        function createCoverGif(x, y) {
+            const coverEl = document.createElement('img');
+            // Usamos la URL pre-cargada exacta. Esto garantiza que cargue instantáneamente
+            // desde la memoria caché sin esperar a GitHub.
+            coverEl.src = preloadedImages.cover;
+            coverEl.className = 'cover-gif';
+            coverEl.style.left = `${x}px`;
+            coverEl.style.top = `${y}px`;
+            gameContainer.appendChild(coverEl);
+            
+            // Eliminar a los 0.3 segundos
+            setTimeout(() => {
+                coverEl.remove();
+            }, 300);
+        }
+
+        function updateUI() {
+            scoreDisplay.innerText = `Fucked: ${score}`;
+            timerDisplay.innerText = `Time: ${Math.ceil(timeLeft)}`;
+            
+            // Efecto de advertencia en el tiempo
+            if (timeLeft <= 1.0) {
+                timerDisplay.classList.add('timer-danger');
+            } else {
+                timerDisplay.classList.remove('timer-danger');
+            }
+        }
+
+    </script>
+</body>
+</html>
